@@ -989,7 +989,7 @@ function wireThrottleRetry(pi: ExtensionAPI, runtime: AcpRuntime): void {
   });
 }
 
-function collectOriginals(entries: Array<{ type: string; id: string; message?: AgentMessage; content?: unknown }>): Map<string, AgentMessage> {
+function collectOriginals(entries: Array<{ type: string; id: string; timestamp: string; message?: AgentMessage; content?: unknown }>): Map<string, AgentMessage> {
   const map = new Map<string, AgentMessage>();
   for (const entry of entries) {
     if (entry.type === "message" && entry.message) {
@@ -998,10 +998,12 @@ function collectOriginals(entries: Array<{ type: string; id: string; message?: A
       // Pi's convertToLlm projects custom messages as { role: "user", content }
       // for the LLM. Mirror that here so coreOutToAgentMessages restores a
       // proper user AgentMessage — using role:"custom" would be dropped by Pi.
+      // Keep the entry timestamp: an undefined timestamp poisons Pi's usage
+      // tracking (Math.max(..., undefined) → NaN) and collapses max_tokens.
       const content = typeof entry.content === "string"
         ? [{ type: "text" as const, text: entry.content }]
         : entry.content;
-      map.set(entry.id, { role: "user", content } as AgentMessage);
+      map.set(entry.id, { role: "user", content, timestamp: Date.parse(entry.timestamp) } as AgentMessage);
     }
   }
   return map;
